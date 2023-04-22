@@ -21,7 +21,7 @@ Let us start with the solution for the odometry wheels. Since these accumulate d
 
 >$x_m = {x_r+d*t}$
 >
->${\frac {dx}{dt}}  (x_m)dx={{\frac {dx}{dt}}(x_r+d*t)dx$
+>${\frac{dx}{dt}} (x_m)dx={\frac {dx}{dt}}(x_r+d*t)dx$
 >
 >$v_m = {v_r+d}$
 >
