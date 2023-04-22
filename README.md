@@ -18,9 +18,10 @@ As you can see, the sensors have opposite properties regarding accuracy and drif
 
 ## Solution
 Let us start with the solution for the odometry wheels. Since these accumulate drift over time, the proposed solution is to eliminate time by differentiating its input.
-$$ x_m = {x_r+d*t} $$
-$${\frac {dx}{dt}} (x_m)dx={\frac {dx}{dt}}(x_r+d*t)dx$$
+$$x_m = {x_r+d*t}$$
+$${\frac {dx}{dt}} (x_m)dx={{\frac {dx}{dt}}(x_r+d*t)dx}$$
 $$v_m = {v_r+d}$$
+
 
 
 [FTC]: https://www.firstinspires.org/robotics/ftc
