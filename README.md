@@ -4,7 +4,7 @@ This project provides a simulation of a [Kalman filter] where sensory data regar
 
 ## Introduction
 
-Localisation for robots is often a difficult task, where one had best be sceptical about the readings provided by sensors. However, if computers are one thing not, it's sceptical. Therefore the question arises of how we can make a computer a little less willing to blindly believe it's sensory input.
+Localisation for robots is often a difficult task, where one had best be sceptical about the readings provided by sensors. However, there's one thing that computers are not: sceptical. Therefore the question arises of how we can make a computer a little less willing to blindly believe it's sensory input.
 
 ## The Problem
 Altough this project can be made to cover a wider range of problems, it has been specifically tailored for one case. This is the case of [FTC]-team 16383 where the goal is to provided a better localisation of the robot using a [Kalman filter] to both filter input data as well as to fuse sensors in order to eliminate drift. The sensors are the following:
