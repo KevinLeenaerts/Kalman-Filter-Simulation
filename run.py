@@ -8,11 +8,16 @@ from KF import KF;
 model = Model();
 
 # Settings
-CPS = 300;
+CPS = 20;
 dt = 1/CPS;
-time = 10;
+time = 60;
 iterations = round(time / dt)
-system_dev = 0.01;
+system_dev = 0.3;
+
+camera_off_start1 = 0.2;
+camera_off_end1 = 0.6;
+
+camera_off_intervals = [[0, 0.05], [0.2, 0.35], [0.45, 0.5]]
 
 pos_sensor_dev = 1;
 vel_sensor_dev = 1;
@@ -77,7 +82,7 @@ x0 = np.array([
 rawX = x0;
 
 posSensor = Sensor(model, posH, pos_sensor_dev, 0, 0)
-velSensor = Sensor(model, velH, vel_sensor_dev, 1, 2)
+velSensor = Sensor(model, velH, vel_sensor_dev, 5, 5)
 
 kf1 = KF(F, 0, Q, P, x0)
 kf2 = KF(F, 0, Q, P, x0)
@@ -86,9 +91,11 @@ groundTruths = []
 posMeasurements = []
 velMeasurements = []
 
-# rawEstimates = []
+rawEstimates = []
 estimates1 = []
+covariances1 = []
 estimates2 = []
+covariances2 = []
 
 pastZ = np.array([[0], [0]]);
 
@@ -97,67 +104,109 @@ for i in range(iterations):
     
     z = posSensor.get_reading()
     z2 = velSensor.get_reading();
-    
-    # rawVel = z - pastZ;
-    # pastZ = z;
 
-    # rawX += np.dot(posH.T, rawVel);
-    # rawEstimates.append(rawX)
+    rawX = rawX + np.dot(F, np.dot(velH.T, z2));
+    rawEstimates.append(rawX)
 
     groundTruths.append(model.get_ground_truth())
     posMeasurements.append(z)
     velMeasurements.append(z2)
     
     estimates1.append(kf1.predict())
+    estimates2.append(kf2.predict())
+    
+    covariances1.append(kf1.getCovariance())
+    covariances2.append(kf2.getCovariance())
+    
     kf1.update(z2, velH, velR)
     
-    estimates2.append(kf2.predict())
-    kf2.update(z, posH, posR)
+    camera_is_off = False;
+    
+    for interval in camera_off_intervals:
+        if (i > interval[0] * iterations and i < interval[1] * iterations):
+            camera_is_off = True;
+    
+    if not camera_is_off:
+        kf2.update(z, posH, posR)
     kf2.update(z2, velH, velR)
     
-def genrate1DArray(array, index):
+def generate1DArray(array, index):
     return list(zip(*list(zip(*array))[index]))[0]
 
-plt.subplot(2, 2, 1)
+# Upper 3
+plt.subplot(2, 3, 1)
 plt.title("X Pos")
 plt.xlabel("Time (sec)")
 plt.ylabel("Pos (m)")
-plt.plot(np.arange(0, len(groundTruths) * dt, dt), genrate1DArray(groundTruths, 0), label="Ground Truth")
-# plt.plot(np.arange(0, len(posMeasurements) * dt, dt), genrate1DArray(posMeasurements, 0), label="Pos Measurement")
+plt.plot(np.arange(0, len(groundTruths) * dt, dt), generate1DArray(groundTruths, 0), label="Ground Truth")
+plt.plot(np.arange(0, len(posMeasurements) * dt, dt), generate1DArray(posMeasurements, 0), label="Pos Measurement")
 # plt.plot(np.arange(0, len(rawEstimates) * dt, dt), genrate1DArray(rawEstimates, 0), label="Estimates (raw)")
-plt.plot(np.arange(0, len(estimates1) * dt, dt), genrate1DArray(estimates1, 0), label="Estimates (vel)")
-plt.plot(np.arange(0, len(estimates2) * dt, dt), genrate1DArray(estimates2, 0), label="Estimates (pos & vel)")
+plt.plot(np.arange(0, len(estimates1) * dt, dt), generate1DArray(estimates1, 0), label="Estimates (vel)")
+plt.plot(np.arange(0, len(estimates2) * dt, dt), generate1DArray(estimates2, 0), label="Estimates (pos & vel)")
+
+ax = plt.gca()
+for interval in camera_off_intervals:
+    ax.axvspan(i * interval[0] * dt, i * interval[1] * dt, alpha=0.3, color='red', label="Camera Off")
 plt.legend()
 
-plt.subplot(2, 2, 2)
+plt.subplot(2, 3, 2)
 plt.title("X Vel")
 plt.xlabel("Time (sec)")
 plt.ylabel("vel (ms^-1)")
-plt.plot(np.arange(0, len(groundTruths) * dt, dt), genrate1DArray(groundTruths, 2), label="Ground Truth")
-# plt.plot(np.arange(0, len(velMeasurements) * dt, dt), genrate1DArray(velMeasurements, 0), label="Vel Measurement")
-plt.plot(np.arange(0, len(estimates1) * dt, dt), genrate1DArray(estimates1, 2), label="Estimates (vel)")
-plt.plot(np.arange(0, len(estimates2) * dt, dt), genrate1DArray(estimates2, 2), label="Estimates (pos & vel)")
+plt.plot(np.arange(0, len(groundTruths) * dt, dt), generate1DArray(groundTruths, 2), label="Ground Truth")
+plt.plot(np.arange(0, len(velMeasurements) * dt, dt), generate1DArray(velMeasurements, 0), label="Vel Measurement")
+plt.plot(np.arange(0, len(estimates1) * dt, dt), generate1DArray(estimates1, 2), label="Estimates (vel)")
+plt.plot(np.arange(0, len(estimates2) * dt, dt), generate1DArray(estimates2, 2), label="Estimates (pos & vel)")
 plt.legend()
 
-plt.subplot(2, 2, 3)
+plt.subplot(2, 3, 3)
+plt.title("X Err")
+plt.xlabel("Time (sec)")
+plt.ylabel("Err (m)")
+
+plt.plot(np.arange(0, len(estimates2) * dt, dt), np.abs(np.subtract(generate1DArray(estimates2, 0), generate1DArray(groundTruths, 0))), label="Error")
+plt.ylim(0)
+ax = plt.gca()
+for interval in camera_off_intervals:
+    ax.axvspan(i * interval[0] * dt, i * interval[1] * dt, alpha=0.3, color='red', label="Camera Off")
+plt.legend()
+
+# Lower 3
+plt.subplot(2, 3, 4)
 plt.title("Y Pos")
 plt.xlabel("Time (sec)")
 plt.ylabel("Pos (m)")
-plt.plot(np.arange(0, len(groundTruths) * dt, dt), genrate1DArray(groundTruths, 1), label="Ground Truth")
-# plt.plot(np.arange(0, len(posMeasurements) * dt, dt), genrate1DArray(posMeasurements, 1), label="Pos Measurement")
+plt.plot(np.arange(0, len(groundTruths) * dt, dt), generate1DArray(groundTruths, 1), label="Ground Truth")
+plt.plot(np.arange(0, len(posMeasurements) * dt, dt), generate1DArray(posMeasurements, 1), label="Pos Measurement")
 # plt.plot(np.arange(0, len(rawEstimates) * dt, dt), genrate1DArray(rawEstimates, 1), label="Estimates (raw)")
-plt.plot(np.arange(0, len(estimates1) * dt, dt), genrate1DArray(estimates1, 1), label="Estimates (vel)")
-plt.plot(np.arange(0, len(estimates2) * dt, dt), genrate1DArray(estimates2, 1), label="Estimates (pos & vel)")
+plt.plot(np.arange(0, len(estimates1) * dt, dt), generate1DArray(estimates1, 1), label="Estimates (vel)")
+plt.plot(np.arange(0, len(estimates2) * dt, dt), generate1DArray(estimates2, 1), label="Estimates (pos & vel)")
+
+ax = plt.gca()
+for interval in camera_off_intervals:
+    ax.axvspan(i * interval[0] * dt, i * interval[1] * dt, alpha=0.3, color='red', label="Camera Off")
 plt.legend()
 
-plt.subplot(2, 2, 4)
+plt.subplot(2, 3, 5)
 plt.title("Y Vel")
 plt.xlabel("Time (sec)")
 plt.ylabel("vel (ms^-1)")
-plt.plot(np.arange(0, len(groundTruths) * dt, dt), genrate1DArray(groundTruths, 3), label="Ground Truth")
-# plt.plot(np.arange(0, len(velMeasurements) * dt, dt), genrate1DArray(velMeasurements, 1), label="Vel Measurement")
-plt.plot(np.arange(0, len(estimates1) * dt, dt), genrate1DArray(estimates1, 3), label="Estimates (vel)")
-plt.plot(np.arange(0, len(estimates2) * dt, dt), genrate1DArray(estimates2, 3), label="Estimates (pos & vel)")
+plt.plot(np.arange(0, len(groundTruths) * dt, dt), generate1DArray(groundTruths, 3), label="Ground Truth")
+plt.plot(np.arange(0, len(velMeasurements) * dt, dt), generate1DArray(velMeasurements, 1), label="Vel Measurement")
+plt.plot(np.arange(0, len(estimates1) * dt, dt), generate1DArray(estimates1, 3), label="Estimates (vel)")
+plt.plot(np.arange(0, len(estimates2) * dt, dt), generate1DArray(estimates2, 3), label="Estimates (pos & vel)")
+plt.legend()
+
+plt.subplot(2, 3, 6)
+plt.title("X Err")
+plt.xlabel("Time (sec)")
+plt.ylabel("Err (m)")
+
+plt.plot(np.arange(0, len(estimates2) * dt, dt), np.abs(np.subtract(generate1DArray(estimates2, 1), generate1DArray(groundTruths, 1))), label="Error")
+plt.ylim(0)
+ax = plt.gca()
+for interval in camera_off_intervals:
+    ax.axvspan(i * interval[0] * dt, i * interval[1] * dt, alpha=0.3, color='red', label="Camera Off")
 plt.legend()
 
 

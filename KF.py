@@ -26,4 +26,6 @@ class KF:
         self.P = np.dot(np.dot(I - np.dot(K, H), self.P), (I - np.dot(K, H)).T) + np.dot(np.dot(K, R), K.T)
         
         return self.x
-        
+    
+    def getCovariance(self):
+        return self.P

@@ -11,4 +11,4 @@ class Sensor:
         self.biasSigma = biasSigma;
         
     def get_reading(self):
-        return random.gauss(np.dot(self.H, self.model.get_ground_truth()), self.sigma) + random.gauss(0, self.biasSigma);
+        return random.gauss(np.dot(self.H, self.model.get_ground_truth()), self.sigma) + random.gauss(self.bias, self.biasSigma);
