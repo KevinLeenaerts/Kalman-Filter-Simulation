@@ -1,5 +1,6 @@
 import numpy as np;
 import matplotlib.pyplot as plt;
+import json;
 
 from Model import Model;
 from Sensor import Sensor;
@@ -7,17 +8,16 @@ from KF import KF;
 
 model = Model();
 
+# Constant error!
+
 # Settings
 CPS = 20;
 dt = 1/CPS;
 time = 60;
 iterations = round(time / dt)
-system_dev = 0.3;
+system_dev = 0.15;
 
-camera_off_start1 = 0.2;
-camera_off_end1 = 0.6;
-
-camera_off_intervals = [[0, 0.05], [0.2, 0.35], [0.45, 0.5]]
+camera_off_intervals = [[0.2, 0.7]]
 
 pos_sensor_dev = 1;
 vel_sensor_dev = 1;
@@ -62,8 +62,8 @@ velR = np.array([
 ])
 
 P = np.array([
-    [500, 0, 0, 0, 0, 0],
-    [0, 500, 0, 0, 0, 0],
+    [0.1, 0, 0, 0, 0, 0],
+    [0, 0.1, 0, 0, 0, 0],
     [0, 0, 500, 0, 0, 0],
     [0, 0, 0, 500, 0, 0],
     [0, 0, 0, 0, 500, 0],
@@ -82,7 +82,7 @@ x0 = np.array([
 rawX = x0;
 
 posSensor = Sensor(model, posH, pos_sensor_dev, 0, 0)
-velSensor = Sensor(model, velH, vel_sensor_dev, 5, 5)
+velSensor = Sensor(model, velH, vel_sensor_dev, 0.1, 0.5)
 
 kf1 = KF(F, 0, Q, P, x0)
 kf2 = KF(F, 0, Q, P, x0)
@@ -115,9 +115,6 @@ for i in range(iterations):
     estimates1.append(kf1.predict())
     estimates2.append(kf2.predict())
     
-    covariances1.append(kf1.getCovariance())
-    covariances2.append(kf2.getCovariance())
-    
     kf1.update(z2, velH, velR)
     
     camera_is_off = False;
@@ -132,6 +129,28 @@ for i in range(iterations):
     
 def generate1DArray(array, index):
     return list(zip(*list(zip(*array))[index]))[0]
+
+# Save data
+class NumpyEncoder(json.JSONEncoder):
+    """ Special json encoder for numpy types """
+    def default(self, obj):
+        if isinstance(obj, np.integer):
+            return int(obj)
+        elif isinstance(obj, np.floating):
+            return float(obj)
+        elif isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return json.JSONEncoder.default(self, obj)
+
+data = {
+    "groundTruths": np.array(groundTruths).tolist(),
+    "posMeasurements": np.array(posMeasurements).tolist(),
+    "velMeasurements": np.array(velMeasurements).tolist()
+}
+
+with open("output.json", "w") as json_file:
+    json_file.write(json.dumps(data))
+
 
 # Upper 3
 plt.subplot(2, 3, 1)
@@ -198,7 +217,7 @@ plt.plot(np.arange(0, len(estimates2) * dt, dt), generate1DArray(estimates2, 3),
 plt.legend()
 
 plt.subplot(2, 3, 6)
-plt.title("X Err")
+plt.title("Y Err")
 plt.xlabel("Time (sec)")
 plt.ylabel("Err (m)")
 
@@ -208,6 +227,5 @@ ax = plt.gca()
 for interval in camera_off_intervals:
     ax.axvspan(i * interval[0] * dt, i * interval[1] * dt, alpha=0.3, color='red', label="Camera Off")
 plt.legend()
-
 
 plt.show()
